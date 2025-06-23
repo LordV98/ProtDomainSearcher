@@ -1,23 +1,31 @@
-# ProtDomainSearcher - Versão Final
-# Desenvolvido por Carlos Vinicius Barros Oliveira
+# 🔧 Instalação automática
+!apt-get install -y hmmer
+!pip install -q biopython
 
+# 📂 Upload do .pdb
+from google.colab import files
+print("🔼 Envie o arquivo .pdb para análise (uma cadeia por vez)")
+uploaded = files.upload()
+pdb_file = next(iter(uploaded))
+
+# ================= PROTDOMAINSEARCHER FINAL =================
 import os, subprocess, urllib.request, gzip, shutil
 import pandas as pd, matplotlib.pyplot as plt, matplotlib.patches as mpatches
 import numpy as np
 from Bio.PDB import PDBParser, PPBuilder, is_aa
 
-def baixar_pfam(pfam_dir="./pfam"):
+def baixar_pfam(pfam_dir="/content/pfam"):
     os.makedirs(pfam_dir, exist_ok=True)
     pfam_hmm = os.path.join(pfam_dir, "Pfam-A.hmm")
     pfam_dat = os.path.join(pfam_dir, "Pfam-A.hmm.dat")
     if not os.path.exists(pfam_hmm):
         urllib.request.urlretrieve("https://ftp.ebi.ac.uk/pub/databases/Pfam/current_release/Pfam-A.hmm.gz", pfam_hmm + ".gz")
-        with gzip.open(pfam_hmm + ".gz", "rb") as f_in, open(pfam_hmm, "wb") as f_out: shutil.copyfileobj(f_in, f_out)
+        with gzip.open(pfam_hmm + ".gz", 'rb') as f_in, open(pfam_hmm, 'wb') as f_out: shutil.copyfileobj(f_in, f_out)
     if not all(os.path.exists(pfam_hmm + ext) for ext in [".h3f", ".h3i", ".h3m", ".h3p"]):
         subprocess.run(["hmmpress", pfam_hmm], check=True)
     if not os.path.exists(pfam_dat):
         urllib.request.urlretrieve("https://ftp.ebi.ac.uk/pub/databases/Pfam/current_release/Pfam-A.hmm.dat.gz", pfam_dat + ".gz")
-        with gzip.open(pfam_dat + ".gz", "rb") as f_in, open(pfam_dat, "wb") as f_out: shutil.copyfileobj(f_in, f_out)
+        with gzip.open(pfam_dat + ".gz", 'rb') as f_in, open(pfam_dat, 'wb') as f_out: shutil.copyfileobj(f_in, f_out)
     return pfam_hmm, pfam_dat
 
 def extrair_sequencia(pdb_file):
@@ -70,7 +78,7 @@ def plotar_dominios(seq, df, img="dominios.png"):
     for dom, cor in mapa.items():
         legenda.append(mpatches.Patch(color=cor, label=dom))
     ax.legend(handles=legenda, bbox_to_anchor=(1.01, 1), loc='upper left', fontsize=6)
-    plt.tight_layout(); plt.savefig(img, dpi=300); plt.close()
+    plt.tight_layout(); plt.savefig(img, dpi=300); plt.show()
 
 def calcular_distancias(pdb_file, cadeia_id, dominios_df, fasta_seq):
     parser = PDBParser(QUIET=True)
@@ -98,18 +106,27 @@ def calcular_distancias(pdb_file, cadeia_id, dominios_df, fasta_seq):
 def limpar_distribuicao_categorica():
     arquivos_para_remover = ["frequencia_dominio_nome.csv", "distribuicao_categorica.png"]
     for arquivo in arquivos_para_remover:
-        if os.path.exists(arquivo): os.remove(arquivo)
+        if os.path.exists(arquivo):
+            os.remove(arquivo)
 
-def executar_protdomainsearcher(pdb_file):
-    pfam_db, pfam_dat = baixar_pfam()
-    seq, cadeia_id = extrair_sequencia(pdb_file)
-    salvar_fasta(seq)
-    executar_hmmscan(pfam_db, "temp_seq.fasta", "saida.domtbl")
-    descricoes = carregar_descricoes(pfam_dat)
-    df = parsear_domtbl("saida.domtbl", descricoes)
-    df.to_csv("dominios.csv", index=False)
-    plotar_dominios(seq, df, "dominios.png")
-    df_dist = calcular_distancias(pdb_file, cadeia_id, df, seq)
-    df_dist.to_csv("distancias_reais.csv", index=False)
-    limpar_distribuicao_categorica()
-    print("✅ ProtDomainSearcher finalizado.")
+def download_outputs_visiveis():
+    for arq in ["dominios.csv", "distancias_reais.csv", "dominios.png"]:
+        if os.path.exists(arq): files.download(arq)
+
+# 🚀 Execução principal
+pfam_db, pfam_dat = baixar_pfam()
+seq, cadeia_id = extrair_sequencia(pdb_file)
+salvar_fasta(seq)
+executar_hmmscan(pfam_db, "temp_seq.fasta", "saida.domtbl")
+descricoes = carregar_descricoes(pfam_dat)
+df = parsear_domtbl("saida.domtbl", descricoes)
+df.to_csv("dominios.csv", index=False)
+plotar_dominios(seq, df, "dominios.png")
+df_dist = calcular_distancias(pdb_file, cadeia_id, df, seq)
+
+from IPython.display import display
+display(df)
+display(df_dist)
+
+limpar_distribuicao_categorica()
+download_outputs_visiveis()
